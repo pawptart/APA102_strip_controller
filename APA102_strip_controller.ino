@@ -2,28 +2,24 @@
 
 FASTLED_USING_NAMESPACE
 
-// FastLED "100-lines-of-code" demo reel, showing just a few 
-// of the kinds of animation patterns you can quickly and easily 
-// compose using FastLED.  
-//
-// This example also shows one easy way to define multiple 
-// animations patterns and have them automatically rotate.
-//
-// -Mark Kriegsman, December 2014
-
 #if defined(FASTLED_VERSION) && (FASTLED_VERSION < 3001000)
 #warning "Requires FastLED 3.1 or later; check github for latest code."
 #endif
 
-#define DATA_PIN    5
-#define CLK_PIN   4
+#define DATA_PIN        5
+#define CLK_PIN         4
+#define BRIGHTNESS_PIN A0
+#define PATTERN_PIN    A1
 #define LED_TYPE    APA102
 #define COLOR_ORDER GRB
-#define NUM_LEDS    288
+#define NUM_LEDS    209
 CRGB leds[NUM_LEDS];
 
 #define BRIGHTNESS          96
 #define FRAMES_PER_SECOND  120
+
+float gBrightnessModifier = 0.0;
+int gCurrentPatternValue = 0;
 
 void setup() {
   delay(3000); // 3 second delay for recovery
@@ -32,8 +28,7 @@ void setup() {
   FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
-  // set master brightness control
-  FastLED.setBrightness(BRIGHTNESS);
+  Serial.begin(9600);
 }
 
 
@@ -43,11 +38,19 @@ SimplePatternList gPatterns = { rainbow, rainbowWithGlitter, confetti, sinelon, 
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
-  
+
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
 void loop()
 {
+  gBrightnessModifier = (1023.0 - (float)analogRead(BRIGHTNESS_PIN)) / 1023.0;
+  gCurrentPatternValue = (ARRAY_SIZE(gPatterns) - 1) * ( (1023.0 - (float)analogRead(PATTERN_PIN)) / 1023.0 );
+
+  // set master brightness control
+  FastLED.setBrightness(BRIGHTNESS * gBrightnessModifier);
+  
   // Call the current pattern function once, updating the 'leds' array
-  gPatterns[gCurrentPatternNumber]();
+  gPatterns[gCurrentPatternValue]();
 
   // send the 'leds' array out to the actual LED strip
   FastLED.show();  
@@ -56,15 +59,6 @@ void loop()
 
   // do some periodic updates
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
-  EVERY_N_SECONDS( 10 ) { nextPattern(); } // change patterns periodically
-}
-
-#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
-
-void nextPattern()
-{
-  // add one to the current pattern number, and wrap around at the end
-  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
 }
 
 void rainbow() 

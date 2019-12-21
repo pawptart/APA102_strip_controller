@@ -18,15 +18,15 @@ CRGB leds[NUM_LEDS];
 #define BRIGHTNESS          96
 #define FRAMES_PER_SECOND  120
 
-float gBrightnessModifier = 0.0;
 int gCurrentPatternValue = 0;
+float gBrightnessValuesArray[30] = { -1 };
+float gBrightnessModifier = 0.0;
 
 void setup() {
   delay(3000); // 3 second delay for recovery
   
   // tell FastLED about the LED strip configuration
   FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-  //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   Serial.begin(9600);
 }
@@ -34,7 +34,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm };
+SimplePatternList gPatterns = { fillSolid, confetti, sinelon, juggle, bpm };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -43,7 +43,7 @@ uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void loop()
 {
-  gBrightnessModifier = (1023.0 - (float)analogRead(BRIGHTNESS_PIN)) / 1023.0;
+  smoothBrightness();
   gCurrentPatternValue = (ARRAY_SIZE(gPatterns) - 1) * ( (1023.0 - (float)analogRead(PATTERN_PIN)) / 1023.0 );
 
   // set master brightness control
@@ -61,17 +61,10 @@ void loop()
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
 }
 
-void rainbow() 
+void fillSolid() 
 {
-  // FastLED's built-in rainbow generator
-  fill_rainbow( leds, NUM_LEDS, gHue, 7);
-}
-
-void rainbowWithGlitter() 
-{
-  // built-in FastLED rainbow, plus some random sparkly glitter
-  rainbow();
-  addGlitter(80);
+  Serial.println(gBrightnessModifier);
+  fill_solid( leds, NUM_LEDS, CRGB(255,255,255));
 }
 
 void addGlitter( fract8 chanceOfGlitter) 
@@ -112,8 +105,13 @@ void juggle() {
   // eight colored dots, weaving in and out of sync with each other
   fadeToBlackBy( leds, NUM_LEDS, 20);
   byte dothue = 0;
-  for( int i = 0; i < 8; i++) {
+  for( int i = 0; i < 8; i++ ) {
     leds[beatsin16( i+7, 0, NUM_LEDS-1 )] |= CHSV(dothue, 200, 255);
     dothue += 32;
   }
+}
+
+void smoothBrightness() {
+  // Smooth brightness by rounding to nearest tenth
+  gBrightnessModifier = truncf((1023.0 - (float)analogRead(BRIGHTNESS_PIN)) / 1023.0 * 10) / 10;
 }
